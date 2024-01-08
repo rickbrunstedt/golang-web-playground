@@ -8,12 +8,12 @@ import (
 	"net/http"
 )
 
-func ApplyMiddlewares(middlewares []func(http.HandlerFunc) http.HandlerFunc, next http.HandlerFunc) http.HandlerFunc {
-	if len(middlewares) < 1 {
-		return next
-	}
-	return middlewares[0](ApplyMiddlewares(middlewares[1:], next))
+type Session struct {
+	id         string
+	authorized bool
 }
+
+var sessionMap = map[string]Session{}
 
 func randomText() (string, error) {
 	buf := make([]byte, 32)
@@ -24,14 +24,7 @@ func randomText() (string, error) {
 	return base64.StdEncoding.EncodeToString(buf), nil
 }
 
-type Session struct {
-	id         string
-	authorized bool
-}
-
-var sessionMap = map[string]Session{}
-
-func CreateSession() (Session, error) {
+func createSession() (Session, error) {
 	nextSessionId, err := randomText()
 	if err != nil {
 		return Session{}, err
@@ -41,12 +34,12 @@ func CreateSession() (Session, error) {
 	return session, nil
 }
 
-func GetOrCreateSession(sessionId string) (Session, error) {
+func getOrCreateSession(sessionId string) (Session, error) {
 	session, ok := sessionMap[sessionId]
 	if ok {
 		return session, nil
 	}
-	newSession, err := CreateSession()
+	newSession, err := createSession()
 	if err != nil {
 		log.Println("Error creating session:", err)
 		return Session{}, err
@@ -58,7 +51,7 @@ func HandleSession(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionCookie, err := r.Cookie("session")
 		if err != nil {
-			session, err := CreateSession()
+			session, err := createSession()
 			if err != nil {
 				log.Println("Error creating session:", err)
 				http.Error(w, "Internal server error", 500)
@@ -67,7 +60,7 @@ func HandleSession(next http.HandlerFunc) http.HandlerFunc {
 			cookie := http.Cookie{Name: "session", Value: session.id}
 			http.SetCookie(w, &cookie)
 		}
-		session, err := GetOrCreateSession(sessionCookie.Value)
+		session, err := getOrCreateSession(sessionCookie.Value)
 		if err != nil {
 			log.Println("Error getting session:", err)
 			http.Error(w, "Internal server error", 500)
