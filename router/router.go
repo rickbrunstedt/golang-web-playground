@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -21,19 +22,10 @@ func (r *Router) Use(middleware func(http.HandlerFunc) http.HandlerFunc) {
 }
 
 func (r *Router) Json(w http.ResponseWriter, data interface{}) {
-	var res = ""
-	switch v := data.(type) {
-	case []byte:
-		res = string(v)
-	case string:
-		res = v
-	default:
-		jsonBytes, err := json.Marshal(data)
-		if err != nil {
-			fmt.Println("Error marshalling data:", err)
-			return
-		}
-		res = string(jsonBytes)
+	res, err := formatJson(data)
+	if err != nil {
+		log.Println("Error marshalling data:", err)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, res)
@@ -53,6 +45,21 @@ func NewRouter() *Router {
 		mux:         http.NewServeMux(),
 		middlewares: []func(http.HandlerFunc) http.HandlerFunc{},
 		routes:      map[string]func(http.ResponseWriter, *http.Request){},
+	}
+}
+
+func formatJson(data interface{}) (string, error) {
+	switch v := data.(type) {
+	case string:
+		return v, nil
+	case []byte:
+		return string(v), nil
+	default:
+		jsonBytes, err := json.Marshal(data)
+		if err != nil {
+			return "", err
+		}
+		return string(jsonBytes), nil
 	}
 }
 
