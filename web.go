@@ -15,8 +15,7 @@ func main() {
 	mux := http.NewServeMux()
 	middlewares := []func(http.HandlerFunc) http.HandlerFunc{handleSession}
 	mux.HandleFunc("/", applyMiddlewares(middlewares, router))
-
-	fmt.Println("Starting server on port " + PORT)
+	fmt.Println("Starting server on port", PORT)
 	err := http.ListenAndServe(PORT, mux)
 	log.Fatal(err)
 }
@@ -29,11 +28,9 @@ func applyMiddlewares(middlewares []func(http.HandlerFunc) http.HandlerFunc, nex
 	return middlewares[0](applyMiddlewares(middlewares[1:], next))
 }
 
-var randomReader = rand.Reader
-
 func randomText() (string, error) {
 	buf := make([]byte, 32)
-	_, err := io.ReadFull(randomReader, buf)
+	_, err := io.ReadFull(rand.Reader, buf)
 	if err != nil {
 		return "", err
 	}
@@ -43,55 +40,53 @@ func randomText() (string, error) {
 type Session struct {
 	id         string
 	authorized bool
-	// name string
 }
 
 var sessionMap = map[string]Session{}
 
 func createSession() (Session, error) {
 	nextSessionId, err := randomText()
-
 	if err != nil {
 		return Session{}, err
 	}
-
 	session := Session{id: nextSessionId, authorized: false}
 	sessionMap[nextSessionId] = session
 	return session, nil
 }
 
+func getOrCreateSession(sessionId string) (Session, error) {
+	session, ok := sessionMap[sessionId]
+	if ok {
+		return session, nil
+	}
+	newSession, err := createSession()
+	if err != nil {
+		log.Println("Error creating session:", err)
+		return Session{}, err
+	}
+	return newSession, nil
+}
+
 func handleSession(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionCookie, err := r.Cookie("session")
-
 		if err != nil {
 			session, err := createSession()
-
 			if err != nil {
-				log.Printf("Error creating session: %s", err)
+				log.Println("Error creating session:", err)
 				http.Error(w, "Internal server error", 500)
 				return
 			}
 			cookie := http.Cookie{Name: "session", Value: session.id}
 			http.SetCookie(w, &cookie)
-		} else {
-			log.Printf("Session cookie found: %s", sessionCookie.Name)
-			log.Printf("Session cookie found: %s", sessionCookie.Value)
-			session, ok := sessionMap[sessionCookie.Value]
-
-			if !ok {
-				log.Printf("Session not found: %s", sessionCookie.Value)
-				http.Error(w, "Internal server error", 500)
-				return
-			}
-
-			if session.authorized {
-				log.Printf("Session authorized: %s", sessionCookie.Value)
-				next.ServeHTTP(w, r)
-				return
-			}
 		}
-
+		session, err := getOrCreateSession(sessionCookie.Value)
+		if err != nil {
+			log.Println("Error getting session:", err)
+			http.Error(w, "Internal server error", 500)
+			return
+		}
+		log.Println("Session:", session)
 		next.ServeHTTP(w, r)
 	}
 }
@@ -99,14 +94,13 @@ func handleSession(next http.HandlerFunc) http.HandlerFunc {
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	// Just a dummy thing for now
 	return func(w http.ResponseWriter, r *http.Request) {
-		// log.Printf("Authenticated connection from %s %s", r.RemoteAddr, r.URL.Path)
 		next.ServeHTTP(w, r)
 	}
 }
 
 func loggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Logged connection from %s %s %s %s", r.RemoteAddr, r.URL.Path, r.Method, r.URL.Query())
+		log.Println("Logged connection from", r.RemoteAddr, r.URL.Path, r.Method, r.URL.Query())
 		next.ServeHTTP(w, r)
 	}
 }
@@ -136,9 +130,9 @@ func router(w http.ResponseWriter, r *http.Request) {
 
 func checkAuth(w http.ResponseWriter, r *http.Request) {
 	auth := r.Header.Get("Cookie")
-	// log.Printf("Auth: %s", auth)
 	w.Header().Add("Cookie", "test=1234")
 	w.Header().Set("Authorization", "3214")
+
 	if auth == "1234" {
 		fmt.Fprintf(w, "Authorized")
 	} else {
