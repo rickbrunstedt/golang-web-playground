@@ -32,5 +32,8 @@ func main() {
 		rt.Json(w, query)
 	})
 
-	rt.Start(PORT)
+	err := rt.Start(PORT)
+	if err != nil {
+		panic(err)
+	}
 }
