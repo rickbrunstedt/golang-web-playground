@@ -2,6 +2,7 @@ package main
 
 import (
 	"app/web/router"
+	"app/web/router/middlewares"
 	"fmt"
 	"net/http"
 )
@@ -20,8 +21,8 @@ func main() {
 	rt.Headers.AccessControlAllowOrigin = "*"
 	rt.Headers.AccessControlAllowMethods = "GET, POST, PUT, DELETE, OPTIONS"
 
-	rt.Use(router.HandleSession)
-	rt.Use(router.LoggerMiddleware)
+	rt.Use(middlewares.Sessions)
+	rt.Use(middlewares.Logger)
 
 	rt.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `

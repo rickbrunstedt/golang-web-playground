@@ -1,4 +1,4 @@
-package router
+package middlewares
 
 import (
 	"crypto/rand"
@@ -46,7 +46,7 @@ func getOrCreateSession(sessionId string) (Session, error) {
 	return newSession, nil
 }
 
-func HandleSession(next http.HandlerFunc) http.HandlerFunc {
+func Sessions(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionCookie, err := r.Cookie("session")
 		if err != nil {
@@ -66,7 +66,7 @@ func HandleSession(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func LoggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
+func Logger(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Logged connection from", r.RemoteAddr, r.URL.Path, r.Method, r.URL.Query())
 		next.ServeHTTP(w, r)
