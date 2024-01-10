@@ -16,11 +16,15 @@ type Person struct {
 func main() {
 	rt := router.NewRouter()
 
+	rt.Headers.ContentType = "text/html; charset=utf-8"
+	rt.Headers.AccessControlAllowOrigin = "*"
+	rt.Headers.AccessControlAllowMethods = "GET, POST, PUT, DELETE, OPTIONS"
+
 	rt.Use(router.HandleSession)
 	rt.Use(router.LoggerMiddleware)
 
 	rt.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `
+		fmt.Fprint(w, `
 			<h1>Home</h1>
 			<ul>
 			<li><a href="/data">Data</a></li>
@@ -34,7 +38,7 @@ func main() {
 		rt.Json(w, data)
 	})
 	rt.Get("/return-struct", func(w http.ResponseWriter, r *http.Request) {
-		data := Person{Name: "John"}
+		data := Person{Name: "John", Age: 30}
 		rt.Json(w, data)
 	})
 	rt.Get("/query", func(w http.ResponseWriter, r *http.Request) {
