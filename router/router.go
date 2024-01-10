@@ -26,7 +26,7 @@ func (r *Router) Json(w http.ResponseWriter, data interface{}) {
 		http.Error(w, "Internal server error", 500)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, res)
+	fmt.Fprint(w, res)
 }
 
 func (r *Router) Start(port string) error {
@@ -53,14 +53,10 @@ func formatJson(data interface{}) (string, error) {
 	case []byte:
 		return string(v), nil
 	default:
-		log.Println("Marshalling data:", v)
 		jsonBytes, err := json.Marshal(data)
 		if err != nil {
-			log.Println("Error marshalling data:", err)
 			return "", err
 		}
-		r := string(jsonBytes)
-		log.Println("Marshalled no error data:", r)
 		return string(jsonBytes), nil
 	}
 }

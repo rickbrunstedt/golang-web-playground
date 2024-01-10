@@ -2,7 +2,6 @@ package main
 
 import (
 	"app/web/router"
-	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -10,8 +9,8 @@ import (
 var PORT = ":8080"
 
 type Person struct {
-	name string
-	age  int
+	Name string
+	Age  int
 }
 
 func main() {
@@ -35,12 +34,8 @@ func main() {
 		rt.Json(w, data)
 	})
 	rt.Get("/return-struct", func(w http.ResponseWriter, r *http.Request) {
-		data := Person{name: "John", age: 30}
-		jsonData, err := json.Marshal(data)
-		if err != nil {
-			panic(err)
-		}
-		rt.Json(w, jsonData)
+		data := Person{Name: "John"}
+		rt.Json(w, data)
 	})
 	rt.Get("/query", func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
