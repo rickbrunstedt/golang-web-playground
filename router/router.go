@@ -53,10 +53,14 @@ func formatJson(data interface{}) (string, error) {
 	case []byte:
 		return string(v), nil
 	default:
+		log.Println("Marshalling data:", v)
 		jsonBytes, err := json.Marshal(data)
 		if err != nil {
+			log.Println("Error marshalling data:", err)
 			return "", err
 		}
+		r := string(jsonBytes)
+		log.Println("Marshalled no error data:", r)
 		return string(jsonBytes), nil
 	}
 }
