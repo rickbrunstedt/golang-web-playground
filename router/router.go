@@ -3,7 +3,6 @@ package router
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 )
 
@@ -24,8 +23,7 @@ func (r *Router) Use(middleware func(http.HandlerFunc) http.HandlerFunc) {
 func (r *Router) Json(w http.ResponseWriter, data interface{}) {
 	res, err := formatJson(data)
 	if err != nil {
-		log.Println("Error marshalling data:", err)
-		return
+		http.Error(w, "Internal server error", 500)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, res)

@@ -41,7 +41,6 @@ func getOrCreateSession(sessionId string) (Session, error) {
 	}
 	newSession, err := createSession()
 	if err != nil {
-		log.Println("Error creating session:", err)
 		return Session{}, err
 	}
 	return newSession, nil
@@ -53,27 +52,16 @@ func HandleSession(next http.HandlerFunc) http.HandlerFunc {
 		if err != nil {
 			session, err := createSession()
 			if err != nil {
-				log.Println("Error creating session:", err)
 				http.Error(w, "Internal server error", 500)
-				return
 			}
 			cookie := http.Cookie{Name: "session", Value: session.id}
 			http.SetCookie(w, &cookie)
+		} else {
+			_, err = getOrCreateSession(sessionCookie.Value)
+			if err != nil {
+				http.Error(w, "Internal server error", 500)
+			}
 		}
-		session, err := getOrCreateSession(sessionCookie.Value)
-		if err != nil {
-			log.Println("Error getting session:", err)
-			http.Error(w, "Internal server error", 500)
-			return
-		}
-		log.Println("Session:", session)
-		next.ServeHTTP(w, r)
-	}
-}
-
-func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	// Just a dummy thing for now
-	return func(w http.ResponseWriter, r *http.Request) {
 		next.ServeHTTP(w, r)
 	}
 }
