@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 )
 
@@ -24,7 +25,7 @@ type RouteCtx struct {
 	W    http.ResponseWriter
 	R    *http.Request
 	Json func(interface{})
-	Html func(string)
+	Html func(string, ...interface{})
 }
 
 type RouteHandler func(RouteCtx)
@@ -61,9 +62,12 @@ func (rt *Router) makeHandler(handler func(RouteCtx)) func(http.ResponseWriter, 
 			Json: func(i interface{}) {
 				rt.Json(w, i)
 			},
-			Html: func(s string) {
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				fmt.Fprint(w, s)
+			Html: func(html string, data ...interface{}) {
+				if len(data) < 1 {
+					rt.Html(w, html, nil)
+				} else {
+					rt.Html(w, html, data[0])
+				}
 			},
 		})
 	}
@@ -113,6 +117,18 @@ func (r *Router) Json(w http.ResponseWriter, data interface{}) {
 	fmt.Fprint(w, res)
 }
 
+func (r *Router) Html(w http.ResponseWriter, html string, data interface{}) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, err := template.New("random").Parse(html)
+	if err != nil {
+		panic(err)
+	}
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (rt *Router) routesHandler(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	path := r.URL.Path
@@ -147,6 +163,7 @@ func formatJson(data interface{}) (string, error) {
 	}
 }
 
+// TODO: This should be done in a better way
 func setDefaultHeaders(rt *Router, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if rt.Headers.AccessControlAllowMethods != "" {
