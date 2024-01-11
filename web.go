@@ -4,6 +4,7 @@ import (
 	"app/web/router"
 	"app/web/router/middlewares"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -17,6 +18,7 @@ type Person struct {
 func main() {
 	rt := router.NewRouter()
 
+	// Setting default headers
 	rt.Headers.ContentType = "text/html; charset=utf-8"
 	rt.Headers.AccessControlAllowOrigin = "*"
 	rt.Headers.AccessControlAllowMethods = "GET, POST, PUT, DELETE, OPTIONS"
@@ -31,6 +33,7 @@ func main() {
 			<li><a href="/data">Data</a></li>
 			<li><a href="/query?foo=bar&foo=test">Query test</a></li>
 			<li><a href="/return-struct">Return struct as json</a></li>
+			<li><a href="/test-post">Test POST</a></li>
 			</ul>
 		`)
 	})
@@ -45,6 +48,23 @@ func main() {
 	rt.Get("/query", func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
 		rt.Json(w, query)
+	})
+	rt.Get("/test-post", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("GET /test-post")
+		fmt.Fprint(w, `
+			<main>
+				<h1>Test POST</h1>
+  			<form action="/test-post" method="post">
+					<input type="text" name="name" />
+					<input type="submit" value="Submit" />
+				</form>
+			</main>
+		`)
+	})
+	rt.Post("/test-post", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("POST /test-post")
+		name := r.FormValue("name")
+		fmt.Fprintf(w, "Hello %s", name)
 	})
 
 	err := rt.Start(PORT)

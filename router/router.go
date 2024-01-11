@@ -9,8 +9,14 @@ import (
 type Router struct {
 	mux         *http.ServeMux
 	middlewares []func(http.HandlerFunc) http.HandlerFunc
-	routes      map[string]func(http.ResponseWriter, *http.Request)
 	Headers     Headers
+	routes      map[string]Route
+}
+
+type Route struct {
+	Path    string
+	Handler func(http.ResponseWriter, *http.Request)
+	Method  string
 }
 
 type Headers struct {
@@ -23,13 +29,43 @@ func NewRouter() *Router {
 	return &Router{
 		mux:         http.NewServeMux(),
 		middlewares: []func(http.HandlerFunc) http.HandlerFunc{},
-		routes:      map[string]func(http.ResponseWriter, *http.Request){},
 		Headers:     Headers{},
+		routes:      map[string]Route{},
+	}
+}
+
+func (r *Router) addRoute(path string, method string, handler func(http.ResponseWriter, *http.Request)) {
+	routeKey := fmt.Sprintf("%s:%s", path, method)
+	r.routes[routeKey] = Route{
+		Path:    path,
+		Handler: handler,
+		Method:  method,
 	}
 }
 
 func (r *Router) Get(path string, handler func(http.ResponseWriter, *http.Request)) {
-	r.routes[path] = handler
+	r.addRoute(path, http.MethodGet, handler)
+}
+
+func (r *Router) Post(path string, handler func(http.ResponseWriter, *http.Request)) {
+	r.addRoute(path, http.MethodPost, handler)
+}
+
+func (r *Router) Put(path string, handler func(http.ResponseWriter, *http.Request)) {
+	r.addRoute(path, http.MethodPut, handler)
+}
+
+func (r *Router) Delete(path string, handler func(http.ResponseWriter, *http.Request)) {
+	r.addRoute(path, http.MethodDelete, handler)
+}
+
+func (r *Router) Options(path string, handler func(http.ResponseWriter, *http.Request)) {
+	r.addRoute(path, http.MethodOptions, handler)
+}
+
+// How would this work? Would it be a middleware?
+func (r *Router) Head(path string, handler func(http.ResponseWriter, *http.Request)) {
+	r.addRoute(path, http.MethodHead, handler)
 }
 
 func (r *Router) Use(middleware func(http.HandlerFunc) http.HandlerFunc) {
@@ -45,12 +81,22 @@ func (r *Router) Json(w http.ResponseWriter, data interface{}) {
 	fmt.Fprint(w, res)
 }
 
-func (r *Router) Start(port string) error {
-	for path, handler := range r.routes {
-		withMiddlewares := applyMiddlewares(r.middlewares, handler)
-		withHeaders := setDefaultHeaders(r, withMiddlewares)
-		r.mux.HandleFunc(path, withHeaders)
+func (rt *Router) routesHandler(w http.ResponseWriter, r *http.Request) {
+	method := r.Method
+	path := r.URL.Path
+	routeKey := fmt.Sprintf("%s:%s", path, method)
+	route, ok := rt.routes[routeKey]
+	if !ok {
+		http.Error(w, "Not found", 404)
+		return
 	}
+	route.Handler(w, r)
+}
+
+func (r *Router) Start(port string) error {
+	routingWithMiddlewares := applyMiddlewares(r.middlewares, r.routesHandler)
+	routingWithHeaders := setDefaultHeaders(r, routingWithMiddlewares)
+	r.mux.HandleFunc("/", routingWithHeaders)
 	return http.ListenAndServe(port, r.mux)
 }
 
