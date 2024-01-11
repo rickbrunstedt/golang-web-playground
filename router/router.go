@@ -19,6 +19,7 @@ type Route struct {
 	Method  string
 }
 
+// Maybe this shouldn't be name Ctx because it's not a context as in context.Context
 type RouteCtx struct {
 	W    http.ResponseWriter
 	R    *http.Request
@@ -68,30 +69,35 @@ func (rt *Router) makeHandler(handler func(RouteCtx)) func(http.ResponseWriter, 
 	}
 }
 
-func (rt *Router) Get(path string, handler func(RouteCtx)) {
-	wrappedHandler := rt.makeHandler(handler)
-	rt.addRoute(path, http.MethodGet, wrappedHandler)
+func (r *Router) Get(path string, handler func(RouteCtx)) {
+	wrappedHandler := r.makeHandler(handler)
+	r.addRoute(path, http.MethodGet, wrappedHandler)
 }
 
-// func (r *Router) Post(path string, handler func(http.ResponseWriter, *http.Request)) {
-// 	r.addRoute(path, http.MethodPost, handler)
-// }
+func (r *Router) Post(path string, handler func(RouteCtx)) {
+	wrappedHandler := r.makeHandler(handler)
+	r.addRoute(path, http.MethodPost, wrappedHandler)
+}
 
-// func (r *Router) Put(path string, handler func(http.ResponseWriter, *http.Request)) {
-// 	r.addRoute(path, http.MethodPut, handler)
-// }
+func (r *Router) Put(path string, handler func(RouteCtx)) {
+	wrappedHandler := r.makeHandler(handler)
+	r.addRoute(path, http.MethodPut, wrappedHandler)
+}
 
-// func (r *Router) Delete(path string, handler func(http.ResponseWriter, *http.Request)) {
-// 	r.addRoute(path, http.MethodDelete, handler)
-// }
+func (r *Router) Delete(path string, handler func(RouteCtx)) {
+	wrappedHandler := r.makeHandler(handler)
+	r.addRoute(path, http.MethodDelete, wrappedHandler)
+}
 
-// func (r *Router) Options(path string, handler func(http.ResponseWriter, *http.Request)) {
-// 	r.addRoute(path, http.MethodOptions, handler)
-// }
+func (r *Router) Options(path string, handler func(RouteCtx)) {
+	wrappedHandler := r.makeHandler(handler)
+	r.addRoute(path, http.MethodOptions, wrappedHandler)
+}
 
 // How would this work? Would it be a middleware?
-func (r *Router) Head(path string, handler func(http.ResponseWriter, *http.Request)) {
-	r.addRoute(path, http.MethodHead, handler)
+func (r *Router) Head(path string, handler func(RouteCtx)) {
+	wrappedHandler := r.makeHandler(handler)
+	r.addRoute(path, http.MethodHead, wrappedHandler)
 }
 
 func (r *Router) Use(middleware func(http.HandlerFunc) http.HandlerFunc) {
