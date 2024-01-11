@@ -19,6 +19,15 @@ type Route struct {
 	Method  string
 }
 
+type RouteCtx struct {
+	W    http.ResponseWriter
+	R    *http.Request
+	Json func(interface{})
+	Html func(string)
+}
+
+type RouteHandler func(RouteCtx)
+
 type Headers struct {
 	ContentType               string
 	AccessControlAllowOrigin  string
@@ -43,25 +52,42 @@ func (r *Router) addRoute(path string, method string, handler func(http.Response
 	}
 }
 
-func (r *Router) Get(path string, handler func(http.ResponseWriter, *http.Request)) {
-	r.addRoute(path, http.MethodGet, handler)
+func (rt *Router) makeHandler(handler func(RouteCtx)) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler(RouteCtx{
+			W: w,
+			R: r,
+			Json: func(i interface{}) {
+				rt.Json(w, i)
+			},
+			Html: func(s string) {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				fmt.Fprint(w, s)
+			},
+		})
+	}
 }
 
-func (r *Router) Post(path string, handler func(http.ResponseWriter, *http.Request)) {
-	r.addRoute(path, http.MethodPost, handler)
+func (rt *Router) Get(path string, handler func(RouteCtx)) {
+	wrappedHandler := rt.makeHandler(handler)
+	rt.addRoute(path, http.MethodGet, wrappedHandler)
 }
 
-func (r *Router) Put(path string, handler func(http.ResponseWriter, *http.Request)) {
-	r.addRoute(path, http.MethodPut, handler)
-}
+// func (r *Router) Post(path string, handler func(http.ResponseWriter, *http.Request)) {
+// 	r.addRoute(path, http.MethodPost, handler)
+// }
 
-func (r *Router) Delete(path string, handler func(http.ResponseWriter, *http.Request)) {
-	r.addRoute(path, http.MethodDelete, handler)
-}
+// func (r *Router) Put(path string, handler func(http.ResponseWriter, *http.Request)) {
+// 	r.addRoute(path, http.MethodPut, handler)
+// }
 
-func (r *Router) Options(path string, handler func(http.ResponseWriter, *http.Request)) {
-	r.addRoute(path, http.MethodOptions, handler)
-}
+// func (r *Router) Delete(path string, handler func(http.ResponseWriter, *http.Request)) {
+// 	r.addRoute(path, http.MethodDelete, handler)
+// }
+
+// func (r *Router) Options(path string, handler func(http.ResponseWriter, *http.Request)) {
+// 	r.addRoute(path, http.MethodOptions, handler)
+// }
 
 // How would this work? Would it be a middleware?
 func (r *Router) Head(path string, handler func(http.ResponseWriter, *http.Request)) {
