@@ -33,6 +33,8 @@ func main() {
 				<li><a href="/query?foo=bar&foo=test">Query test</a></li>
 				<li><a href="/return-struct">Return struct as json</a></li>
 				<li><a href="/test-post">Test POST</a></li>
+				<li><a href="/dynamic-params/123">Dynamic params</a></li>
+				<li><a href="/dynamic-params/123/nested/bar">Dynamic params</a></li>
 			</ul>
 
 			<div>
@@ -44,7 +46,26 @@ func main() {
 		`
 		ctx.Html(html, Person{Name: "Bob", Age: 67})
 	})
-
+	rt.Get("/dynamic-params/:foo", func(ctx router.RouteCtx) {
+		someId := ctx.Params["foo"]
+		html := `
+			<main>
+				<h1>Dynamic params</h1>
+				<p>someId: {{.}}</p>
+			</main>
+		`
+		ctx.Html(html, someId)
+	})
+	rt.Get("/dynamic-params/:foo/nested/:bar", func(ctx router.RouteCtx) {
+		html := `
+			<main>
+				<h1>Dynamic params</h1>
+				<p>Foo: {{.foo}}</p>
+				<p>Bar: {{.bar}}</p>
+			</main>
+		`
+		ctx.Html(html, ctx.Params)
+	})
 	rt.Get("/data", func(ctx router.RouteCtx) {
 		data := `{"status": "ok"}`
 		ctx.Json(data)

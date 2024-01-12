@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"regexp"
+	"strings"
 )
 
 type Router struct {
@@ -15,17 +17,21 @@ type Router struct {
 }
 
 type Route struct {
-	Path    string
-	Handler func(http.ResponseWriter, *http.Request)
-	Method  string
+	Path       string
+	PathReg    *regexp.Regexp
+	ParamNames []string
+	Handler    func(http.ResponseWriter, *http.Request, map[string]string)
+	Method     string
 }
 
 // Maybe this shouldn't be name Ctx because it's not a context as in context.Context
 type RouteCtx struct {
-	W    http.ResponseWriter
-	R    *http.Request
-	Json func(interface{})
-	Html func(string, ...interface{})
+	W        http.ResponseWriter
+	R        *http.Request
+	Redirect func(string, int)
+	Json     func(interface{})
+	Html     func(string, ...interface{})
+	Params   map[string]string
 }
 
 type RouteHandler func(RouteCtx)
@@ -45,20 +51,26 @@ func NewRouter() *Router {
 	}
 }
 
-func (r *Router) addRoute(path string, method string, handler func(http.ResponseWriter, *http.Request)) {
+func (r *Router) addRoute(path string, method string, handler func(http.ResponseWriter, *http.Request, map[string]string)) {
+	pathRegex, dynamicNames := makePathRegexp(path)
 	routeKey := fmt.Sprintf("%s:%s", path, method)
 	r.routes[routeKey] = Route{
-		Path:    path,
-		Handler: handler,
-		Method:  method,
+		Path:       path,
+		PathReg:    pathRegex,
+		ParamNames: dynamicNames,
+		Handler:    handler,
+		Method:     method,
 	}
 }
 
-func (rt *Router) makeHandler(handler func(RouteCtx)) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (rt *Router) makeHandler(handler func(RouteCtx)) func(http.ResponseWriter, *http.Request, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, params map[string]string) {
 		handler(RouteCtx{
 			W: w,
 			R: r,
+			Redirect: func(path string, status int) {
+				http.Redirect(w, r, path, status)
+			},
 			Json: func(i interface{}) {
 				rt.Json(w, i)
 			},
@@ -69,6 +81,7 @@ func (rt *Router) makeHandler(handler func(RouteCtx)) func(http.ResponseWriter, 
 					rt.Html(w, html, data[0])
 				}
 			},
+			Params: params,
 		})
 	}
 }
@@ -130,15 +143,17 @@ func (r *Router) Html(w http.ResponseWriter, html string, data interface{}) {
 }
 
 func (rt *Router) routesHandler(w http.ResponseWriter, r *http.Request) {
-	method := r.Method
 	path := r.URL.Path
-	routeKey := fmt.Sprintf("%s:%s", path, method)
-	route, ok := rt.routes[routeKey]
-	if !ok {
-		http.Error(w, "Not found", 404)
-		return
+
+	for _, route := range rt.routes {
+		if route.PathReg.MatchString(path) {
+			params := extractParamsFromURL(route, path)
+			route.Handler(w, r, params)
+			return
+		}
 	}
-	route.Handler(w, r)
+
+	http.Error(w, "Not found", 404)
 }
 
 func (r *Router) Start(port string) error {
@@ -184,4 +199,36 @@ func applyMiddlewares(middlewares []func(http.HandlerFunc) http.HandlerFunc, nex
 		return next
 	}
 	return middlewares[0](applyMiddlewares(middlewares[1:], next))
+}
+
+func makePathRegexp(path string) (*regexp.Regexp, []string) {
+	regexRoute := regexp.MustCompile(`:[^/]+`).ReplaceAllString(path, `[^/]+`)
+	regexMatches := regexp.MustCompile(`:([^/]+)`).FindAllStringSubmatch(path, -1)
+	matches := make([]string, len(regexMatches))
+	for i, match := range regexMatches {
+		matches[i] = match[1]
+	}
+	regexRoute = "^" + regexRoute + "$"
+	fullRegex := regexp.MustCompile(regexRoute)
+	return fullRegex, matches
+}
+
+func extractParamsFromURL(route Route, path string) map[string]string {
+	params := make(map[string]string)
+
+	// Split the route's path and the incoming path into segments
+	routeSegments := strings.Split(route.Path, "/")
+	pathSegments := strings.Split(path, "/")
+
+	// Ensure the number of segments match
+	if len(routeSegments) == len(pathSegments) {
+		for i, segment := range routeSegments {
+			if strings.HasPrefix(segment, ":") && i < len(pathSegments) {
+				paramName := strings.TrimPrefix(segment, ":")
+				params[paramName] = pathSegments[i]
+			}
+		}
+	}
+
+	return params
 }
